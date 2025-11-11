@@ -12,6 +12,10 @@ import os
 import re
 from matplotlib.animation import FuncAnimation
 
+import sys
+sys.path.insert(1, '../Pan-Tompkins-Plus-Plus/')
+from algos.pan_tompkins_plus_plus import Pan_Tompkins_Plus_Plus as Rpeak_detection_algo
+
 class ECGLiveFilterApp:
     def __init__(self, root):
         self.root = root
@@ -671,7 +675,11 @@ class ECGLiveFilterApp:
         b, a = signal.butter(2, [5/(fs/2), 15/(fs/2)], btype='bandpass')
         qrs_enh = signal.filtfilt(b, a, sig)
 
-        peaks = self.robust_r_peaks(sig, fs)
+        m_detector = Rpeak_detection_algo()
+        
+        # peaks = self.robust_r_peaks(sig, fs)
+        peaks = m_detector.rpeak_detection(sig, fs)
+        peaks = np.rint(peaks).astype(np.int64)
 
         # 2) Instantaneous HR from RR intervals
         rr = np.diff(peaks) / fs

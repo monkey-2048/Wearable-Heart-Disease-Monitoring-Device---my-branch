@@ -728,13 +728,7 @@ class ECGLiveFilterApp:
         if oldpeak_mag is not None:
             resting_ecg = "ST" if oldpeak_mag >= 0.10 else "Normal"
 
-        if max_hr > 160:
-            beats_count = int(int(peaks.size)/2)
-        else:
-            beats_count = int(peaks.size)
-
-
-        max_hr = 60/(10-(peaks[0]/500)) * beats_count
+        beats_count = int(peaks.size)
 
         return {
             "HR": max_hr,

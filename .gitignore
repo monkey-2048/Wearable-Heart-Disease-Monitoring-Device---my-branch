@@ -2,3 +2,6 @@
 *.py[cod]
 *.pyo
 *.ipynb_checkpoints/
+.vscode/
+.env
+.DS_Store

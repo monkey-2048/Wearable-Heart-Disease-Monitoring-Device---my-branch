@@ -5,7 +5,7 @@ services:
     build: .
     container_name: heart-monitor-backend
     ports:
-      - "5001:5001"
+      - "39244:39244"
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped

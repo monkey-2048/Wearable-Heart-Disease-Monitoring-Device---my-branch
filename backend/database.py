@@ -1,7 +1,5 @@
-from datetime import datetime, timedelta
-from flask import request
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-import secrets
 import random
 
 db = SQLAlchemy()
@@ -75,6 +73,28 @@ def init_db(app):
     db.init_app(app)
     with app.app_context():
         db.create_all()
+
+
+# ==================== User Functions ====================
+
+def create_user(google_id: str, email: str, name: str, api_token: str) -> User:
+    user = User(
+        google_id=google_id,
+        email=email,
+        name=name,
+        api_token=api_token,
+        profile_completed=False
+    )
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def get_user_by_google_id(google_id: str) -> User:
+    return User.query.filter_by(google_id=google_id).first()
+
+def get_user_by_token(api_token: str) -> User:
+    return User.query.filter_by(api_token=api_token).first()
 
 
 # ==================== Profile Functions ====================

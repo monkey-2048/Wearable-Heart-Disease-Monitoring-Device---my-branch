@@ -10,8 +10,15 @@ services:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     volumes:
-      # 如果需要持久化資料，可以掛載卷
+      # Mount local Python files for live development
+      - ./backend_main.py:/app/backend_main.py
+      - ./database.py:/app/database.py
+      - ./login.py:/app/login.py
+      - ./pseudo_data.py:/app/pseudo_data.py
+      - ./gemini.py:/app/gemini.py
+      # Persist logs and database (use directory for db)
       - ./logs:/app/logs
+      - ./data:/app/data
     networks:
       - heart-monitor-network
 

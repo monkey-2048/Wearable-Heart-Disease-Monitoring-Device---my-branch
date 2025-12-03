@@ -93,32 +93,28 @@ def create_user_profile():
     }
     return jsonify(database.update_userdata(user_data["id"], profile_data))
 
-@app.route('/api/v1/user/health-data', methods=['POST'])
-def submit_health_data():
+@app.route('/api/v1/user/health-data', methods=['GET', 'POST'])
+def health_data():
     user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
-    data = request.json
     
-    required_fields = ['resting_bp', 'cholesterol', 'fasting_bs']
-    for field in required_fields:
-        if field not in data:
-            abort(400, f'Missing required field: {field}')
+    if request.method == 'POST':
+        data = request.json
+        required_fields = ['resting_bp', 'cholesterol', 'fasting_bs']
+        for field in required_fields:
+            if field not in data:
+                abort(400, f'Missing required field: {field}')
+        
+        result = database.add_health_record(user_data["id"], {
+            "resting_bp": data["resting_bp"],
+            "cholesterol": data["cholesterol"],
+            "fasting_bs": data["fasting_bs"]
+        })
+        return jsonify(result)
     
-    result = database.add_health_record(user_data["id"], {
-        "resting_bp": data["resting_bp"],
-        "cholesterol": data["cholesterol"],
-        "fasting_bs": data["fasting_bs"]
-    })
-    return jsonify(result)
-
-@app.route('/api/v1/user/health-data', methods=['GET'])
-def get_health_data():
-    user_data = login.check_auth(request)
-    if "error" in user_data:
-        status_code, message = user_data["error"]
-        abort(status_code, message)
+    # GET request
     return jsonify(database.get_health_data(user_data["id"]))
 
 # --- Health Data API ---

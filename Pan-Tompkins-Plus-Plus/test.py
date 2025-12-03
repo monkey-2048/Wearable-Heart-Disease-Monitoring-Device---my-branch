@@ -92,44 +92,22 @@ def linear_resample(ts, x, fs_target):
 if __name__ == "__main__":
     det = RpeakDetection()
 
-    # ---- Robust CSV locator ----
-    PROJ_DIR = Path(__file__).resolve().parent     # Pan-Tompkins-Plus-Plus 這層
-    CANDIDATES = [
-        PROJ_DIR.parent / "ECG-Live-Filter" / "csv",   # 兄弟資料夾（最預期）
-        PROJ_DIR / "ECG-Live-Filter" / "csv",          # 放在同層底下
-        PROJ_DIR / "csv",                              # 直接放同資料夾的 csv 子夾
-    ]
-    CSV_DIR = None
-    for c in CANDIDATES:
-        if c.exists() and any(c.glob("*.csv")):
-            CSV_DIR = c
-            break
-    if CSV_DIR is None:
-        cur = PROJ_DIR
-        for _ in range(6):  # 最多往上 6 層
-            cand = cur / "ECG-Live-Filter" / "csv"
-            if cand.exists() and any(cand.glob("*.csv")):
-                CSV_DIR = cand
-                break
-            cur = cur.parent
-    if CSV_DIR is None:
-        for d in PROJ_DIR.parent.rglob("*"):
-            try:
-                if d.is_dir() and any(d.glob("*.csv")):
-                    CSV_DIR = d
-                    break
-            except PermissionError:
-                pass
-    if CSV_DIR is None:
-        raise FileNotFoundError("在專案附近找不到任何 .csv 資料夾，請確認檔案有放好。")
+    # ---- CSV 目錄（固定）----
+    PROJ_DIR = Path(__file__).resolve().parent     # 主程式所在資料夾
+    CSV_DIR = PROJ_DIR / "ECG_DATA"                # 只看這個資料夾
 
-    files = sorted(glob.glob(str(CSV_DIR / "*.csv"))) #排序找到的檔案
+    if not CSV_DIR.exists():
+        raise FileNotFoundError(f"找不到 ECG_DATA 資料夾：{CSV_DIR}")
+
+    files = sorted(glob.glob(str(CSV_DIR / "*.csv")))  # 只讀 ECG_DATA/*.csv
+    if not files:
+        raise FileNotFoundError(f"ECG_DATA 資料夾裡找不到任何 CSV 檔案：{CSV_DIR}/*.csv")
+
     if MAX_FILES:
         files = files[:MAX_FILES]
+
     print(f"[INFO] 使用的 CSV 目錄：{CSV_DIR}")
     print(f"[INFO] 找到 {len(files)} 個 CSV：", [Path(f).name for f in files][:5], "..." if len(files) > 5 else "")
-    if not files:
-        raise FileNotFoundError(f"找不到任何 CSV：{CSV_DIR}/*.csv")
     # ---- end locator ----
 
     # 2) 輸出資料夾
@@ -151,6 +129,9 @@ if __name__ == "__main__":
         else:
             ecg_use, fs_float, ts_rs = ecg, fs_est, ts
             t_axis = np.arange(ecg_use.size)
+
+        # 後面 R-peak、feature、畫圖的部份全部維持原本那樣 ...
+
 
         # 5) R-peak 偵測 + 不應期去重（200 ms）
         fs_i = int(round(fs_float))  # 轉整數，避免報錯
@@ -188,13 +169,9 @@ if __name__ == "__main__":
             features = det.compute_ecg_features(ecg_use, fs_i)
             features_stfilt = det.compute_ecg_features_stfilt(ecg_use, fs_i)   # ST 濾波版本
 
-            print("原濾波版本 (raw) :")
-            print(f"  HR={features['HR']:.1f} bpm, "
-                  f"ST_label={features['ST_Label']}, "
-                  f"Oldpeak={features['Oldpeak']:.3f} mV")
 
-            print("ST 濾波版本 (0.5–35 Hz) :")
-            print(f"  HR={features_stfilt['HR']:.1f} bpm, "
+            print("result :")
+            print(f"  MAX HR={features['HR']:.1f} bpm, "
                   f"ST_label={features_stfilt['ST_Label']}, "
                   f"Oldpeak={features_stfilt['Oldpeak']:.3f} mV")
 
@@ -202,7 +179,7 @@ if __name__ == "__main__":
             ecg_stfilt_full = filter_for_st(ecg_use, fs_i)   # 跟 ecg_use 對齊
            
             # === 只取前 N 秒，看得比較清楚 ===
-            max_t = 10.0  # 秒（你剛才寫 2.0 但註解寫 10 秒，看你要哪一個）
+            max_t =30  # 秒
             time_axis_sec = (ts_rs - ts_rs[0])
             mask = time_axis_sec <= max_t
 
@@ -262,6 +239,7 @@ if __name__ == "__main__":
             plt.legend()
             plt.tight_layout()
             plt.show()
+
 
 
 

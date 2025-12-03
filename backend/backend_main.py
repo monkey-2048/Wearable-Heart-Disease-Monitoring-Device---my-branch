@@ -24,9 +24,20 @@ app = Flask(__name__)
 CORS(app) 
 sock = Sock(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data.db')
+# Use data directory for database to work with Docker volume mounts
+data_dir = os.path.join(basedir, 'data')
+os.makedirs(data_dir, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(data_dir, 'data.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 database.init_db(app)
+
+# --- Security Headers for Google Sign-In ---
+@app.after_request
+def add_security_headers(response):
+    # Allow popups for Google Sign-In
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+    response.headers['Cross-Origin-Embedder-Policy'] = 'unsafe-none'
+    return response
 
 # --- Frontend Server ---
 # @app.route('/', methods=['GET'])
@@ -41,12 +52,12 @@ def auth_google():
     
     if not google_token:
         abort(400, 'Missing google_token')
-    print(f"Received Google Token (simulated verification): {google_token}...")
-    return jsonify(pseudo_data.login(google_token))
+    print(f"Received Google Token: {google_token}...")
+    return jsonify(login.login(google_token))
 
 @app.route('/api/auth/me', methods=['GET'])
 def auth_me():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
 
     if "error" in user_data:
         status_code, message = user_data["error"]
@@ -63,7 +74,7 @@ def auth_me():
 # --- User Profile and Health Data ---
 @app.route('/api/v1/user/profile', methods=['POST'])
 def create_user_profile():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -84,7 +95,7 @@ def create_user_profile():
 
 @app.route('/api/v1/user/health-data', methods=['POST'])
 def submit_health_data():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -104,7 +115,7 @@ def submit_health_data():
 
 @app.route('/api/v1/user/health-data', methods=['GET'])
 def get_health_data():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -113,7 +124,7 @@ def get_health_data():
 # --- Health Data API ---
 @app.route('/api/v1/health/summary', methods=['GET'])
 def get_health_summary():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -121,7 +132,7 @@ def get_health_summary():
 
 @app.route('/api/v1/health/risk', methods=['GET'])
 def get_health_risk():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -129,7 +140,7 @@ def get_health_risk():
 
 @app.route('/api/v1/charts/bp', methods=['GET'])
 def get_chart_bp():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -148,7 +159,7 @@ def get_chart_bp():
 
 @app.route('/api/v1/charts/hr', methods=['GET'])
 def get_chart_hr():
-    user_data = pseudo_data.check_auth(request)
+    user_data = login.check_auth(request)
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
@@ -180,7 +191,7 @@ def send_ecg_data(ws: Server):
 @sock.route('/ws/ecg/stream')
 def ecg_stream(ws: Server):
     token = request.args.get('token')
-    if not pseudo_data.check_auth_ws(token):
+    if not login.check_auth_ws(token):
         print(f"WebSocket connection rejected: Invalid token '{token}'")
         ws.close()
         return

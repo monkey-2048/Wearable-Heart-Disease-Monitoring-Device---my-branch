@@ -21,7 +21,7 @@ const MAX_ECG_POINTS = 300;
 const ECG_UPDATE_MS = 40;
 
 // --- API Base URL ---
-const API_BASE_URL = "https://pottery-consciousness-handy-jumping.trycloudflare.com";
+const API_BASE_URL = "https://consists-rescue-products-hebrew.trycloudflare.com/";
 
 // --- API Helper ---
 
@@ -70,6 +70,8 @@ async function handleCredentialResponse(credentialResponse) {
         const data = await response.json();
         apiToken = data.api_token;
         sessionStorage.setItem('apiToken', apiToken);
+        if(data.user.name)
+            defaultConfig.user_name = data.user.name;
         
         // 檢查是否為新用戶
         if (data.is_new_user) {

@@ -430,19 +430,39 @@ class Pan_Tompkins_Plus_Plus():
 
     def compute_ecg_features(self, sig, fs):
 
-
         sig = np.asarray(sig, dtype=float)
         n = sig.size
 
-        # 1) R-peak detection（用你現成的偵測器）
-        peaks = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
-        beats_count = int(peaks.size)
+        # 1) R-peak detection
+        qrs = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
+
+        # ---- 用 HR_MAX=200 bpm 推回最短 RR ----
+        HR_MAX = 200.0
+        MIN_RR_SEC = 60.0 / HR_MAX          # 0.30 s
+        refractory = int(round(MIN_RR_SEC * fs))
+
+        # fix HR max problem: 刪掉太近的假 peak
+        if qrs.size > 0:
+            keep = [qrs[0]]
+            for idx in qrs[1:]:
+                if idx - keep[-1] >= refractory:
+                    keep.append(idx)
+            qrs = np.asarray(keep, dtype=int)
+
+        beats_count = int(qrs.size)
 
         # 2) Instantaneous HR from RR
         if beats_count >= 2:
-            rr = np.diff(peaks) / float(fs)           # s
-            hr_inst = 60.0 / rr                       # bpm
-            max_hr = float(np.max(hr_inst))
+            rr = np.diff(qrs) / float(fs)    # s
+            hr_inst = 60.0 / rr              # bpm
+
+            # 第二道防線：把 HR > 200 視為 outlier 丟掉
+            hr_valid = hr_inst[hr_inst <= HR_MAX]
+
+            if hr_valid.size > 0:
+                max_hr = float(np.max(hr_valid))    # 或用 percentile 也可以
+            else:
+                max_hr = np.nan
         else:
             hr_inst = np.array([])
             max_hr = np.nan
@@ -456,7 +476,7 @@ class Pan_Tompkins_Plus_Plus():
         st_e   = int(0.08 * fs)   # +80 ms
         slope_win = int(0.08 * fs)
 
-        for r in peaks:
+        for r in qrs:
             pre_start = r - pre_w1
             pre_end   = r - pre_w2
             j         = r + j_off
@@ -469,7 +489,7 @@ class Pan_Tompkins_Plus_Plus():
 
             baseline = float(np.median(sig[pre_start:pre_end]))
 
-            # (A) ST offset（signed）：+elevation / -depression
+            # (A) ST offset (signed)：+elevation / -depression
             st_seg = sig[st_start:st_end] - baseline
             if st_seg.size:
                 st_vals.append(float(np.mean(st_seg)))
@@ -490,20 +510,25 @@ class Pan_Tompkins_Plus_Plus():
         # 5) 由 slope 給 3 類標籤（閾值可依資料校正）
         thr_slope = 0.5  # mV/s；可調 0.3~1.0
         if np.isfinite(st_slope):
-            if st_slope >  thr_slope: st_label = "Up"
-            elif st_slope < -thr_slope: st_label = "Down"
-            else:                       st_label = "Flat"
+            if st_slope >  thr_slope:
+                st_label = "Up"
+            elif st_slope < -thr_slope:
+                st_label = "Down"
+            else:
+                st_label = "Flat"
         else:
             st_label = None
 
         return {
-            "HR": max_hr,                 # bpm（max instantaneous)
-            "Oldpeak": oldpeak_signed,    # mV（有號）
-            "OldpeakAbs": oldpeak_mag,    # mV（絕對值）
-            "ST_Slope": st_slope,         # mV/s（連續值）
-            "ST_Label": st_label,         # Up/Flat/Down
-            "n_beats": beats_count,
+            "HR": max_hr,              # bpm (max instantaneous, capped by 200 的生理邏輯)
+            "Oldpeak": oldpeak_signed, # mV (signed)
+            "OldpeakAbs": oldpeak_mag, # mV (absolute)
+            "ST_Slope": st_slope,      # mV/s
+            "ST_Label": st_label,      # Up / Flat / Down
+            "n_beats": beats_count,    # 已經是「refractory 後」的 beat 數
         }
+
+
     
     def compute_ecg_features_stfilt(self, sig, fs):
 
@@ -513,7 +538,6 @@ class Pan_Tompkins_Plus_Plus():
         # 1) R-peak detection：仍然用原始訊號 + Pan-Tompkins++
         peaks = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
         beats_count = int(peaks.size)
-
         # 2) 用 RR 計算瞬時 HR（與原版相同）
         if beats_count >= 2:
             rr = np.diff(peaks) / float(fs)  # second

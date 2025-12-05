@@ -26,13 +26,13 @@ The objective is to create a portable and low-cost biomonitoring platform for lo
 
 Algorithm Foundation: Pan-Tompkins++
 
-This project incorporates and extends the algorithm originally proposed in:
+This project incorporates, extends and modify the algorithm originally proposed in:
 
 Pan-Tompkins++: A Robust Approach to Detect R-peaks in ECG Signals
 Khan & Imtiaz, IEEE BIBM 2022 (CBPBL Workshop)
 Paper: https://arxiv.org/abs/2211.03171
 
-If you use this algorithm in academic work, please cite the original authors:
+the original authors:
 
 ```bibtex
 @article{khan2022pan,

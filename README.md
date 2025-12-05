@@ -80,6 +80,22 @@ ECG Example
 
 ![ECG Example](Pan-Tompkins-Plus-Plus/assets/Figure_1.png)
 
+### 4. Prediction example
+
+```bash
+Chunk MaxHR ST_Slope  Oldpeak Risk  Prob
+   1   143.3   Flat    0.012   高風險  50.8%
+   2   111.6   Flat    0.012   低風險  46.3%
+   3   115.7   Flat    0.012   低風險  36.2%
+   4   145.5     Up    0.012   高風險  50.8%
+   5   118.5     Up    0.012   低風險  33.0%
+   6   126.3     Up    0.012   低風險  43.5%
+   7   131.5     Up    0.012   低風險  46.8%
+   8   181.1     Up    0.012   低風險  48.2%
+   9   177.8     Up    0.012   低風險  48.2%
+  10   124.7     Up    0.012   低風險  33.0%
+```
+
 ## **Key Features**
 
 ### **Robust R-Peak Detection**

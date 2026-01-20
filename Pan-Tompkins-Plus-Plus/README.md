@@ -1,18 +1,12 @@
 # Pan-Tompkins++
 
-This repo contains the code accompanying our paper [Pan-Tompkins++: A Robust Approach to Detect R-peaks in ECG Signals](https://arxiv.org/abs/2211.03171) accepted at [IEEE BIBM 2022 workshop CBPBL 2022](https://ieeebibm.org/BIBM2022/).
+## Script Notes 
+- `address_features.py`: read `ECG_DATA/*.csv`, run R-peak + ST feature extraction, and append per-window features to `results_csv/window_features.csv`.
+- `collect_features.py`: aggregate `window_features.csv` into rest/exercise summary stats, then write `results_csv/collectd_features.csv` and model input `results_csv/model_input_features.csv`.
+- `predict.py`: load `results_csv/model_input_features.csv`, align features, run the three saved models, and output predictions to `results_csv/predictions_models.csv` and `results_csv/prediction_ensemble.json`.
 
-We propose an efficient R-peak detection algorithm named Pan-Tompkins++. This is an improved Pan-Tompkins algorithm that effectively reduces the False Positives and False Negatives given by the Pan-Tompkins algorithm.
+把ECG資料存到 ECG_DATA資料夾裡面
 
 
-### Citation 
-If you find this code useful, please consider citing our work:
-```
-@article{khan2022pan,
-  title={Pan-Tompkins++: A Robust Approach to Detect R-peaks in ECG Signals},
-  author={Khan, Naimul and Imtiaz, Md Niaz},
-  journal={arXiv preprint arXiv:2211.03171},
-  year={2022}
-}
-```
+
 

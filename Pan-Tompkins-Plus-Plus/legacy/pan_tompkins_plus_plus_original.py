@@ -428,36 +428,46 @@ class Pan_Tompkins_Plus_Plus():
         return qrs_i_raw
     
 
-<<<<<<< HEAD
-=======
     def compute_ecg_features(self, sig, fs):
-
 
         sig = np.asarray(sig, dtype=float)
         n = sig.size
 
-        # 1) R-peak detection（用你現成的偵測器）
-        peaks = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
-        peaks = np.asarray(peaks, dtype=int)
-        if peaks.size:
-            refractory = int(0.200 * fs)
-            keep = [peaks[0]]
-            for k in range(1, len(peaks)):
-                if peaks[k] - keep[-1] >= refractory:
-                    keep.append(peaks[k])
-            peaks = np.asarray(keep, dtype=int)
-        beats_count = int(peaks.size)
+        # 1) R-peak detection
+        qrs = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
+
+        # ---- ??HR_MAX=200 bpm ?¨å??€??RR ----
+        HR_MAX = 200.0
+        MIN_RR_SEC = 60.0 / HR_MAX          # 0.30 s
+        refractory = int(round(MIN_RR_SEC * fs))
+
+        # fix HR max problem: ?ªæ?å¤ªè??„å? peak
+        if qrs.size > 0:
+            keep = [qrs[0]]
+            for idx in qrs[1:]:
+                if idx - keep[-1] >= refractory:
+                    keep.append(idx)
+            qrs = np.asarray(keep, dtype=int)
+
+        beats_count = int(qrs.size)
 
         # 2) Instantaneous HR from RR
         if beats_count >= 2:
-            rr = np.diff(peaks) / float(fs)           # s
-            hr_inst = 60.0 / rr                       # bpm
-            max_hr = float(np.max(hr_inst))
+            rr = np.diff(qrs) / float(fs)    # s
+            hr_inst = 60.0 / rr              # bpm
+
+            # ç¬¬ä??“é˜²ç·šï???HR > 200 è¦–ç‚º outlier ä¸Ÿæ?
+            hr_valid = hr_inst[hr_inst <= HR_MAX]
+
+            if hr_valid.size > 0:
+                max_hr = float(np.max(hr_valid))    # ?–ç”¨ percentile ä¹Ÿå¯ä»?
+            else:
+                max_hr = np.nan
         else:
             hr_inst = np.array([])
             max_hr = np.nan
 
-        # 3) ST metrics per beat（baseline referenced）
+        # 3) ST metrics per beatï¼ˆbaseline referencedï¼?
         st_vals, slopes = [], []
         pre_w1 = int(0.20 * fs)   # -200 ms
         pre_w2 = int(0.12 * fs)   # -120 ms
@@ -466,25 +476,25 @@ class Pan_Tompkins_Plus_Plus():
         st_e   = int(0.08 * fs)   # +80 ms
         slope_win = int(0.08 * fs)
 
-        for r in peaks:
+        for r in qrs:
             pre_start = r - pre_w1
             pre_end   = r - pre_w2
             j         = r + j_off
             st_start  = r + st_s
             st_end    = r + st_e
 
-            # 邊界檢查
+            # ?Šç?æª¢æŸ¥
             if pre_start < 0 or pre_end <= pre_start or st_end >= n or j >= n:
                 continue
 
             baseline = float(np.median(sig[pre_start:pre_end]))
 
-            # (A) ST offset（signed）：+elevation / -depression
+            # (A) ST offset (signed)ï¼?elevation / -depression
             st_seg = sig[st_start:st_end] - baseline
             if st_seg.size:
                 st_vals.append(float(np.mean(st_seg)))
 
-            # (B) ST slope（J -> J+80 ms 線性擬合斜率，單位 mV/s）
+            # (B) ST slopeï¼ˆJ -> J+80 ms ç·šæ€§æ“¬?ˆæ??‡ï??®ä? mV/sï¼?
             j_end = min(j + slope_win, n)
             x = np.arange(j, j_end) / float(fs)
             y = sig[j:j_end] - baseline
@@ -492,100 +502,13 @@ class Pan_Tompkins_Plus_Plus():
                 k, _ = np.polyfit(x, y, 1)
                 slopes.append(float(k))
 
-        # 4) 聚合統計
+        # 4) ?šå?çµ±è?
         oldpeak_signed = float(np.median(st_vals)) if st_vals else np.nan
         oldpeak_mag    = float(np.median(np.abs(st_vals))) if st_vals else np.nan
         st_slope       = float(np.median(slopes)) if slopes else np.nan
 
-        # 5) 由 slope 給 3 類標籤（閾值可依資料校正）
-        thr_slope = 0.5  # mV/s；可調 0.3~1.0
-        if np.isfinite(st_slope):
-            if st_slope >  thr_slope: st_label = "Up"
-            elif st_slope < -thr_slope: st_label = "Down"
-            else:                       st_label = "Flat"
-        else:
-            st_label = None
-
-        return {
-            "HR": max_hr,                 # bpm（max instantaneous)
-            "Oldpeak": oldpeak_signed,    # mV（有號）
-            "OldpeakAbs": oldpeak_mag,    # mV（絕對值）
-            "ST_Slope": st_slope,         # mV/s（連續值）
-            "ST_Label": st_label,         # Up/Flat/Down
-            "n_beats": beats_count,
-        }
-    
-    def compute_ecg_features_stfilt(self, sig, fs):
-
-        sig = np.asarray(sig, dtype=float)
-        n   = sig.size
-
-        # 1) R-peak detection：仍然用原始訊號 + Pan-Tompkins++
-        peaks = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
-        beats_count = int(peaks.size)
-
-        # 2) 用 RR 計算瞬時 HR（與原版相同）
-        if beats_count >= 2:
-            rr = np.diff(peaks) / float(fs)  # second
-            hr_inst = 60.0 / rr              # bpm
-            max_hr = float(np.max(hr_inst))
-        else:
-            hr_inst = np.array([])
-            max_hr  = np.nan
-
-        # 3) ST 專用濾波：0.5–35 Hz
-        sig_f = filter_for_st(sig, fs)
-
-        # 4) ST metrics per beat（baseline referenced）
-        st_vals, slopes = [], []
-
-        # window 設定與原本版一致
-        pre_w1 = int(0.20 * fs)   # -200 ms (baseline window start)
-        pre_w2 = int(0.12 * fs)   # -120 ms (baseline window end)
-        j_off  = int(0.04 * fs)   # +40 ms (J point 位置, approx)
-        st_s   = int(0.06 * fs)   # +60 ms (ST offset window start)
-        st_e   = int(0.08 * fs)   # +80 ms (ST offset window end)
-        slope_win = int(0.08 * fs)  # J 之後 80 ms 拿來 fit slope
-
-        for r in peaks:
-            pre_start = r - pre_w1
-            pre_end   = r - pre_w2
-            j         = r + j_off
-            st_start  = r + st_s
-            st_end    = r + st_e
-
-            # 邊界檢查，避免 index 出界
-            if pre_start < 0 or pre_end <= pre_start or st_end >= n or j >= n:
-                continue
-
-            # baseline：R 前 200~120 ms 的 median（用濾波後的 sig_f）
-            baseline = float(np.median(sig_f[pre_start:pre_end]))
-
-            # (A) ST offset（J+60~80 ms, baseline-referenced）
-            st_seg = sig_f[st_start:st_end] - baseline
-            if st_seg.size:
-                st_vals.append(float(np.mean(st_seg)))
-
-            # (B) ST slope（J → J+80 ms 線性擬合斜率, 單位 mV/s）
-            j_end = min(j + slope_win, n)
-            x = np.arange(j, j_end) / float(fs)   # time axis (s)
-            y = sig_f[j:j_end] - baseline         # baseline-referenced
-            if x.size >= 3:
-                k, _ = np.polyfit(x, y, 1)        # 一階線性擬合
-                slopes.append(float(k))
-
-        # 5) 聚合統計（與原本版一致）
-        if st_vals:
-            oldpeak_signed = float(np.median(st_vals))
-            oldpeak_mag    = float(np.median(np.abs(st_vals)))
-        else:
-            oldpeak_signed = np.nan
-            oldpeak_mag    = np.nan
-
-        st_slope = float(np.median(slopes)) if slopes else np.nan
-
-        # 6) 由 slope 給 3 類標籤（門檻可調）
-        thr_slope = 0.5  # mV/s；視你的資料可以調 0.3 ~ 1.0
+        # 5) ??slope çµ?3 é¡žæ?ç±¤ï??¾å€¼å¯ä¾è??™æ ¡æ­??
+        thr_slope = 0.5  # mV/sï¼›å¯èª?0.3~1.0
         if np.isfinite(st_slope):
             if st_slope >  thr_slope:
                 st_label = "Up"
@@ -597,10 +520,101 @@ class Pan_Tompkins_Plus_Plus():
             st_label = None
 
         return {
-            "HR": max_hr,                 # bpm（max instantaneous)
-            "Oldpeak": oldpeak_signed,    # mV（有號）
-            "OldpeakAbs": oldpeak_mag,    # mV（絕對值）
-            "ST_Slope": st_slope,         # mV/s（連續值）
+            "HR": max_hr,              # bpm (max instantaneous, capped by 200 ?„ç??†é?è¼?
+            "Oldpeak": oldpeak_signed, # mV (signed)
+            "OldpeakAbs": oldpeak_mag, # mV (absolute)
+            "ST_Slope": st_slope,      # mV/s
+            "ST_Label": st_label,      # Up / Flat / Down
+            "n_beats": beats_count,    # å·²ç??¯ã€Œrefractory å¾Œã€ç? beat ??
+        }
+
+
+    
+    def compute_ecg_features_stfilt(self, sig, fs):
+
+        sig = np.asarray(sig, dtype=float)
+        n   = sig.size
+
+        # 1) R-peak detectionï¼šä??¶ç”¨?Ÿå?è¨Šè? + Pan-Tompkins++
+        peaks = np.asarray(self.rpeak_detection(sig, fs), dtype=int)
+        beats_count = int(peaks.size)
+        # 2) ??RR è¨ˆç??¬æ? HRï¼ˆè??Ÿç??¸å?ï¼?
+        if beats_count >= 2:
+            rr = np.diff(peaks) / float(fs)  # second
+            hr_inst = 60.0 / rr              # bpm
+            max_hr = float(np.max(hr_inst))
+        else:
+            hr_inst = np.array([])
+            max_hr  = np.nan
+
+        # 3) ST å°ˆç”¨æ¿¾æ³¢ï¼?.5??5 Hz
+        sig_f = filter_for_st(sig, fs)
+
+        # 4) ST metrics per beatï¼ˆbaseline referencedï¼?
+        st_vals, slopes = [], []
+
+        # window è¨­å??‡å??¬ç?ä¸€??
+        pre_w1 = int(0.20 * fs)   # -200 ms (baseline window start)
+        pre_w2 = int(0.12 * fs)   # -120 ms (baseline window end)
+        j_off  = int(0.04 * fs)   # +40 ms (J point ä½ç½®, approx)
+        st_s   = int(0.06 * fs)   # +60 ms (ST offset window start)
+        st_e   = int(0.08 * fs)   # +80 ms (ST offset window end)
+        slope_win = int(0.08 * fs)  # J ä¹‹å? 80 ms ?¿ä? fit slope
+
+        for r in peaks:
+            pre_start = r - pre_w1
+            pre_end   = r - pre_w2
+            j         = r + j_off
+            st_start  = r + st_s
+            st_end    = r + st_e
+
+            # ?Šç?æª¢æŸ¥ï¼Œé¿??index ?ºç?
+            if pre_start < 0 or pre_end <= pre_start or st_end >= n or j >= n:
+                continue
+
+            # baselineï¼šR ??200~120 ms ??medianï¼ˆç”¨æ¿¾æ³¢å¾Œç? sig_fï¼?
+            baseline = float(np.median(sig_f[pre_start:pre_end]))
+
+            # (A) ST offsetï¼ˆJ+60~80 ms, baseline-referencedï¼?
+            st_seg = sig_f[st_start:st_end] - baseline
+            if st_seg.size:
+                st_vals.append(float(np.mean(st_seg)))
+
+            # (B) ST slopeï¼ˆJ ??J+80 ms ç·šæ€§æ“¬?ˆæ??? ?®ä? mV/sï¼?
+            j_end = min(j + slope_win, n)
+            x = np.arange(j, j_end) / float(fs)   # time axis (s)
+            y = sig_f[j:j_end] - baseline         # baseline-referenced
+            if x.size >= 3:
+                k, _ = np.polyfit(x, y, 1)        # ä¸€?Žç??§æ“¬??
+                slopes.append(float(k))
+
+        # 5) ?šå?çµ±è?ï¼ˆè??Ÿæœ¬?ˆä??´ï?
+        if st_vals:
+            oldpeak_signed = float(np.median(st_vals))
+            oldpeak_mag    = float(np.median(np.abs(st_vals)))
+        else:
+            oldpeak_signed = np.nan
+            oldpeak_mag    = np.nan
+
+        st_slope = float(np.median(slopes)) if slopes else np.nan
+
+        # 6) ??slope çµ?3 é¡žæ?ç±¤ï??€æª»å¯èª¿ï?
+        thr_slope = 0.5  # mV/sï¼›è?ä½ ç?è³‡æ??¯ä»¥èª?0.3 ~ 1.0
+        if np.isfinite(st_slope):
+            if st_slope >  thr_slope:
+                st_label = "Up"
+            elif st_slope < -thr_slope:
+                st_label = "Down"
+            else:
+                st_label = "Flat"
+        else:
+            st_label = None
+
+        return {
+            "HR": max_hr,                 # bpmï¼ˆmax instantaneous)
+            "Oldpeak": oldpeak_signed,    # mVï¼ˆæ??Ÿï?
+            "OldpeakAbs": oldpeak_mag,    # mVï¼ˆç?å°å€¼ï?
+            "ST_Slope": st_slope,         # mV/sï¼ˆé€???¼ï?
             "ST_Label": st_label,         # Up/Flat/Down
             "n_beats": beats_count,
         }
@@ -628,7 +642,6 @@ def filter_for_st(sig, fs): #for st slope hp 0.5HZ lp 35Hz
 
     return sig_bp
     
->>>>>>> 5771927e82c7c86b0c5949ade658895d4f6ea487
 def smoother(signal=None, kernel='boxzen', size=10, mirror=True, **kwargs):
 
         # check inputs

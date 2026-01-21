@@ -42,7 +42,6 @@ def main():
 
     out_dir = base_dir / "results_csv"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_csv = out_dir / "predictions_models.csv"
     out_json = out_dir / "prediction_ensemble.json"
 
     if not input_csv.exists():
@@ -99,6 +98,7 @@ def main():
         "ExerciseAngina": str(feature_map.get("ExerciseAngina", "")),
         "ST slope": str(feature_map.get("ST_Slope", "")),
         "ChestPainType": str(feature_map.get("ChestPainType", "")),
+        "RestingECG": str(feature_map.get("RestingECG", "")),
     }
 
     out_dict = {

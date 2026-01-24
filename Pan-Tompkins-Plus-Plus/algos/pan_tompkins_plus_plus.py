@@ -38,15 +38,10 @@ class Pan_Tompkins_Plus_Plus():
             delay : number of samples which the signal is delayed due to the filtering
 
         """
-    def get_name(self):
-        return "pan_tompkins_plus_plus"
-    
-    
     def rpeak_detection(self, ecg, fs):
 
         ''' Initialize '''
 
-        delay = 0
         skip = 0                    # Becomes one when a T wave is detected
         m_selected_RR = 0
         mean_RR = 0
@@ -110,9 +105,6 @@ class Pan_Tompkins_Plus_Plus():
         temp_vector = temp_vector.flatten()
         ecg_m = np.convolve(ecg_s, temp_vector)  #Convolution signal and moving window sample
 
-        delay = delay + round(0.150*fs)/2
-
-
         pks = []
         locs = peakutils.indexes(y=ecg_m, thres=0, min_dist=round(0.231*fs))  #Find all the peaks apart from previous peak 231ms, peak indices
         for val in locs:
@@ -131,13 +123,6 @@ class Pan_Tompkins_Plus_Plus():
         nois_i = np.zeros(LLp)
 
         ''' Buffers for signal and noise '''
-
-        SIGL_buf = np.zeros(LLp)
-        NOISL_buf = np.zeros(LLp)
-        THRS_buf = np.zeros(LLp)
-        SIGL_buf1 = np.zeros(LLp)
-        NOISL_buf1 = np.zeros(LLp)
-        THRS_buf1 = np.zeros(LLp)
 
         ''' Initialize the training phase (2 seconds of the signal) to determine the THR_SIG and THR_NOISE '''
 		#Threshold of signal after moving average operation; Take first 2s window max peak to set initial Threshold
@@ -240,11 +225,9 @@ class Pan_Tompkins_Plus_Plus():
                               SIG_LEV1 = 0.75 * y_i_t + 0.25 *SIG_LEV1                     
   																						
   
-                          not_nois = 1
-                          
                           SIG_LEV = 0.75 * pks_temp + 0.25 *SIG_LEV           
                   else:
-                      not_nois = 0
+                      pass
             
             
             elif bool(test_m):  #Check for missed QRS if no QRS is detected in 166 percent of
@@ -304,13 +287,12 @@ class Pan_Tompkins_Plus_Plus():
                                 SIG_LEV1 = 0.75 * y_i_t + 0.25 *SIG_LEV1                     
     																						
     
-                            not_nois = 1
                              #Changed- For missed R peaks- Update THR
                             SIG_LEV = 0.75 * pks_temp + 0.25 *SIG_LEV          
                     else:
-                        not_nois = 0
+                        pass
                 else:
-                    not_nois = 0
+                    pass
                     
                     
 
@@ -397,22 +379,9 @@ class Pan_Tompkins_Plus_Plus():
                 THR_NOISE1 = 0.4* THR_SIG1                   #Calculate Threshold-2 for filtered signal; below this Noise
 
 
-            ''' take a track of thresholds of smoothed signal '''
-
-            SIGL_buf[i] = SIG_LEV
-            NOISL_buf[i] = NOISE_LEV
-            THRS_buf[i] = THR_SIG
-
-            ''' take a track of thresholds of filtered signal '''
-
-            SIGL_buf1[i] = SIG_LEV1
-            NOISL_buf1[i] = NOISE_LEV1
-            THRS_buf1[i] = THR_SIG1
-
             ''' reset parameters '''
 
             skip = 0
-            not_nois = 0
             ser_back = 0
             Check_Flag=0
 

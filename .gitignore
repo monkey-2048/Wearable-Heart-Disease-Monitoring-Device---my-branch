@@ -27,12 +27,14 @@ cloudflared.log
 /backend/temp/
 
 # outputs
-Pan-Tompkins-Plus-Plus/physionet.org/
-Pan-Tompkins-Plus-Plus/ECG-Live-Filter/
-Pan-Tompkins-Plus-Plus/results_csv/prediction_ensemble.json
-Pan-Tompkins-Plus-Plus/results_csv/model_input_features.csv
-Pan-Tompkins-Plus-Plus/results_ptbxl
-backend/ecg_data/
+backend/pan_tompkins_plus_plus/physionet.org/
+backend/pan_tompkins_plus_plus/ECG-Live-Filter/
+backend/pan_tompkins_plus_plus/results_ptbxl
+
+backend/pan_tompkins_plus_plus/results_csv/prediction_ensemble.json
+backend/pan_tompkins_plus_plus/results_csv/model_input_features.csv
+backend/pan_tompkins_plus_plus/results_csv/window_features.csv
+backend/ECG_DATA/
 
 # database
 backend/data

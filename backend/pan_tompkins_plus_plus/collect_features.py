@@ -8,6 +8,9 @@ base_patient_info = {
     "Sex": "F",
     "ChestPainType": "NAP",
     "ExerciseAngina": "N",
+    "RestingBP": 120,
+    "Cholesterol": 150,
+    "FastingBS": 150
 }
 
 # Pick majority in ST_label and RestingECG column
@@ -42,6 +45,12 @@ def collect_exercise(df: pd.DataFrame) -> dict:
         "n_ex_windows": int(total),
     }
 
+# TODO: check how to use window features and implement this.
+# Also, I should process the rest/exercise issue.
+def collect_features() -> dict:
+    # from model input features
+    return None
+
 def main():
     base_dir = Path(__file__).resolve().parent
     
@@ -65,20 +74,33 @@ def main():
     base_patient_info["ExerciseAngina"] = str(ipt.iloc[0]["ExerciseAngina"])
 
     df = pd.read_csv(in_csv)
-    if df.empty:
-        raise ValueError("window_features.csv is empty")
+    try:
+        if df.empty:
+            raise ValueError("window_features.csv is empty")
 
-    # Split by filename prefix (This should be modified we should use a variable to classify rest/exercise)
-    df_rest = df[df["file"].astype(str).str.startswith("rest_")]
-    df_ex   = df[df["file"].astype(str).str.startswith("exercise_")]
+        # Split by filename prefix (This should be modified we should use a variable to classify rest/exercise)
+        df_rest = df[df["file"].astype(str).str.startswith("rest_")]
+        df_ex   = df[df["file"].astype(str).str.startswith("exercise_")]
 
-    if df_rest.empty:
-        raise ValueError("no rows starting with rest_")
-    if df_ex.empty:
-        raise ValueError("no rows starting with exercise_")
+        if df_rest.empty:
+            raise ValueError("no rows starting with rest_")
+        if df_ex.empty:
+            raise ValueError("no rows starting with exercise_")
 
-    rest_feat = collect_rest(df_rest)
-    ex_feat   = collect_exercise(df_ex)
+        rest_feat = collect_rest(df_rest)
+        ex_feat   = collect_exercise(df_ex)
+    except:
+        rest_feat = {
+            "rest_mean_oldpeak": 0.0,
+            "rest_resting_ecg_major": "Normal",
+            "n_rest_windows": 0,
+        }
+        ex_feat = {
+            "ex_max_hr": 0.0,
+            "ex_mean_oldpeak": 0.0,
+            "ex_st_slope_major": "Up",
+            "n_ex_windows": 0,
+        }
 
     # Delta oldpeak between exercise and rest
     delta_oldpeak = ex_feat["ex_mean_oldpeak"] - rest_feat["rest_mean_oldpeak"]

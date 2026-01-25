@@ -5,6 +5,10 @@
 
 把ECG資料存到 ECG_DATA資料夾裡面
 
+## Raspberry Pi Requirements
+- Needed for inference and feature extraction: `numpy`, `pandas`, `scipy`, `scikit-learn`, `joblib`, `catboost`, `peakutils`, `six`.
+- Install example:
+  - `pip install numpy pandas scipy scikit-learn joblib catboost peakutils six`
 
 
 

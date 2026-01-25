@@ -165,7 +165,7 @@ def estimate_fs(timestamps: np.ndarray) -> float:
 # ===== Main execution =====
 det = RpeakDetection()
 
-def calc_features(ts: np.ndarray, ecg: np.ndarray, i: int = 0, base: str = "-", debug: bool = False) -> dict:
+def calc_features(ts: np.ndarray, ecg: np.ndarray, i: int = 0, base: str = "rest_ecg_data_", debug: bool = False) -> dict:
     st_time = time.time()
     fs_est = estimate_fs(ts)
     ecg_use, fs_float, ts_rs = ecg, fs_est, ts

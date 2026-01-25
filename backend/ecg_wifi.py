@@ -19,6 +19,7 @@ ESP32_IP = '127.0.0.1'
 PORT = 80
 WINDOW_SECONDS = 10  # How many seconds to show on the live graph
 SAVE_DATA = False
+CSV_PATH = "pan_tompkins_plus_plus/results_csv/window_features.csv"
 
 # Data storage
 all_times = []
@@ -30,7 +31,7 @@ last_temp_chunk = []
 ecg_data_cache = []
 now_ecg_ts_min = 0
 now_ecg_data = {
-    "file": "-",
+    "file": "rest_ecg_data_",
     "fs_hz": 0.0,
     "max_hr": 0.0,
     "avg_hr": 0.0,
@@ -39,6 +40,7 @@ now_ecg_data = {
     "resting_ecg": "ST",
     "calc_time": 0.0
 }
+is_exercise = False
 exec = ThreadPoolExecutor()
 
 def init():
@@ -62,54 +64,61 @@ def update_now_ecg(data: dict) -> None:
         ecg_data_cache.clear()
     ecg_data_cache.append(now_ecg_data["avg_hr"])
 
+    # TODO: remove this poopoo
+    with open(CSV_PATH, "a") as f:
+        f.write(f"{now_ecg_data['file']},{now_ecg_data['fs_hz']},{now_ecg_data['max_hr']},{now_ecg_data['avg_hr']},{now_ecg_data['st_label']},{now_ecg_data['oldpeak']},{now_ecg_data['resting_ecg']},{now_ecg_data['calc_time']}\n")
+
 def update(frame):
-    global last_ts, last_ecg_chunk, last_temp_chunk
+    global last_ts, last_ecg_chunk, last_temp_chunk, is_exercise
     try:
         line_data = socket_file.readline().strip()
         if line_data:
-            val = float(line_data)
-            now_timestamp = time.time()
-            now = now_timestamp - start_timestamp
+            if line_data == "REST":
+                is_exercise = False
+            elif line_data == "EXERCISE":
+                is_exercise = True
+            else:
+                val = float(line_data)
+                now_timestamp = time.time()
+                now = now_timestamp - start_timestamp
 
-            if now_timestamp - last_ts >= WINDOW_SECONDS:
-                last_ecg_chunk = temp_values.copy()
-                last_temp_chunk = temp_times.copy()
-                ts = np.asarray(temp_times, dtype=float)
-                ecg = np.asarray(temp_values, dtype=float)
-                exec.submit(af.calc_features, ts, ecg).add_done_callback(update_now_ecg)
+                if now_timestamp - last_ts >= WINDOW_SECONDS:
+                    last_ecg_chunk = temp_values.copy()
+                    last_temp_chunk = temp_times.copy()
+                    ts = np.asarray(temp_times, dtype=float)
+                    ecg = np.asarray(temp_values, dtype=float)
+                    exec.submit(af.calc_features, ts, ecg).add_done_callback(update_now_ecg)
 
-                temp_times.clear()
-                temp_values.clear()
-                last_ts = now_timestamp
-            
-            temp_times.append(now)
-            temp_values.append(val)
-            
-            if SAVE_DATA:
-                # Save to permanent lists
-                all_times.append(now)
-                all_values.append(val)
-
-                # Update plot data (showing only last WINDOW_SECONDS)
-                # slice the list [-500:] to keep the plot fast/responsive
-                plot_slice_t = all_times[0:] 
-                plot_slice_v = all_values[0:]
+                    temp_times.clear()
+                    temp_values.clear()
+                    last_ts = now_timestamp
                 
-                line.set_data(plot_slice_t, plot_slice_v)
-            
-                # Shift X-axis view
-                if now > WINDOW_SECONDS:
-                    ax.set_xlim(now - WINDOW_SECONDS, now)
+                temp_times.append(now)
+                temp_values.append(val)
                 
+                if SAVE_DATA:
+                    # Save to permanent lists
+                    all_times.append(now)
+                    all_values.append(val)
+
+                    # Update plot data (showing only last WINDOW_SECONDS)
+                    # slice the list [-500:] to keep the plot fast/responsive
+                    plot_slice_t = all_times[0:] 
+                    plot_slice_v = all_values[0:]
+                    
+                    line.set_data(plot_slice_t, plot_slice_v)
+                
+                    # Shift X-axis view
+                    if now > WINDOW_SECONDS:
+                        ax.set_xlim(now - WINDOW_SECONDS, now)
     except Exception:
         pass
-    
     return line,
 
 def get_points_chunk() -> list:
     nda_ecg = np.array(last_ecg_chunk, dtype=np.float64)
     nda_temp = np.array(last_temp_chunk, dtype=np.float64)
-    nx, ny = lttbc.downsample(nda_temp, nda_ecg, int(len(last_ecg_chunk) * 0.6))
+    nx, ny = lttbc.downsample(nda_temp, nda_ecg, int(len(last_ecg_chunk) * 0.7))
     return (ny - np.mean(ny)).tolist()
     # return np.clip((nda - np.mean(nda)) / np.std(nda), -2, 2).tolist()
 
@@ -143,6 +152,10 @@ def main() -> None:
 
     start_timestamp = time.time()
     last_ts = start_timestamp
+
+    # TODO: remove this poopoo
+    with open(CSV_PATH, "w") as f:
+        f.write("file,fs_hz,max_hr,avg_hr,st_label,oldpeak,resting_ecg,calc_time\n")
 
     try:
         if SAVE_DATA:

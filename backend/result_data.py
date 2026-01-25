@@ -4,6 +4,12 @@ import pandas as pd
 import subprocess
 import sys
 
+import pan_tompkins_plus_plus.collect_features as cf
+
+# TODO: let us parse data without generating csv or json
+def parse_user_info_new(user_info: dict) -> dict:
+    cf.base_patient_info = user_info
+
 def parse_user_info(user_info: dict) -> dict:
     user_info_csv_path = "pan_tompkins_plus_plus/results_csv/model_input_features.csv"
     os.makedirs(os.path.dirname(user_info_csv_path), exist_ok=True)

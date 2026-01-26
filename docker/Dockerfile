@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y \
     curl \
@@ -14,10 +14,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py .
+COPY backend/*.py .
+COPY backend/pan_tompkins_plus_plus/ ./pan_tompkins_plus_plus/
 
-COPY start.sh .
-RUN chmod +x start.sh
+COPY docker/start.sh .
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
 EXPOSE 39244
 

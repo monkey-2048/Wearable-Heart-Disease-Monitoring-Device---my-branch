@@ -30,4 +30,13 @@ pip freeze > requirements.txt
 
 ### Docker Usage
 
-Under construction.
+1. If you are using Windows, download Docker Desktop and open it.
+2. `cd docker`.
+3. Ensure your docker fully stopped.
+```bash
+docker-compose down
+```
+4. Build the docker image and start.
+```bash
+docker-compose up --build
+```

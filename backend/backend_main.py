@@ -23,7 +23,7 @@ import pseudo_data
 import result_data
 
 app = Flask(__name__)
-CORS(app) 
+CORS(app)
 sock = Sock(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Use data directory for database to work with Docker volume mounts

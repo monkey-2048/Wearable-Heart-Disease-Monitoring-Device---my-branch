@@ -14,6 +14,7 @@ base_patient_info = {
     "Sex": "F",
     "ChestPainType": "NAP",
     "ExerciseAngina": "N",
+    "RestingECG": False,
     "RestingBP": 120,
     "Cholesterol": 150,
     "FastingBS": 150
@@ -94,7 +95,7 @@ def collect_features(df: pd.DataFrame, debug: bool = False, model_input_path: st
     model_input["MaxHR"] = float(ex_feat.get("ex_max_hr", rest_feat.get("rest_max_hr", 0)))
     model_input["ST_Slope"] = ex_st_slope
     model_input["Oldpeak"] = float(delta_oldpeak)
-    model_input["RestingECG"] = rest_feat.get("rest_resting_ecg_major", "Normal")
+    model_input["RestingECG"] = "LVH" if base_patient_info["RestingECG"] else rest_feat.get("rest_resting_ecg_major", "Normal")
 
     if debug:
         print("[DONE] Aggregation finished")

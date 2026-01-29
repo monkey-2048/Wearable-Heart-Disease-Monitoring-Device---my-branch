@@ -10,7 +10,9 @@ def parse_user_info(user_info: dict, df: pd.DataFrame) -> dict:
     return model_input_feature
 
 def get_health_risk(df: pd.DataFrame) -> dict:
-    result = predict.predict(pd.DataFrame([cf.collect_features(df)]))
+    data = cf.collect_features(df)
+    print(data)
+    result = predict.predict(pd.DataFrame([data]))
     return {
         "risk_score": result.get("ensemble", {}).get("final_prob", 0) * 100,
         "level": result.get("ensemble", {}).get("risk_text", "未知風險")

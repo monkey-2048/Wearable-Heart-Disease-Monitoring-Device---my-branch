@@ -362,15 +362,8 @@ def get_health_summary(user_id: int) -> dict:
     user_info["ChestPainType"] = UserProfile.query.filter_by(user_id=user_id).first().chest_pain_type if UserProfile.query.filter_by(user_id=user_id).first() else "ASY"
     user_info["ExerciseAngina"] = UserProfile.query.filter_by(user_id=user_id).first().exercise_angina if UserProfile.query.filter_by(user_id=user_id).first() else 0
     user_info["ExerciseAngina"] = "Y" if user_info["ExerciseAngina"] != 0 else "N"
+    user_info["RestingECG"] = UserProfile.query.filter_by(user_id=user_id).first().resting_ecg if UserProfile.query.filter_by(user_id=user_id).first() else False
     user_other_info = result_data.parse_user_info(user_info, get_window_features())
-    # add: if LVH than LVH, if none LVH use result we calculate
-    if user_info.get("RestingECG"):
-        resting_ecg_value = "LVH"
-    else:
-        resting_ecg_value = user_other_info.get("RestingECG")
-    print("User RestingECG from profile:", user_info.get("RestingECG"))
-    print("Calculated RestingECG from features:", user_other_info.get("RestingECG"))
-    print("RestingECG value for summary:", resting_ecg_value)
 
     update_hr_record()
     
@@ -382,7 +375,7 @@ def get_health_summary(user_id: int) -> dict:
             "max_hr": user_other_info["MaxHR"],
             "oldpeak": user_other_info["Oldpeak"],
             "st_slope": user_other_info["ST_Slope"],
-            "resting_ecg": resting_ecg_value
+            "resting_ecg": user_other_info["RestingECG"]
         },
         "ai_summary": "這是來自 Python 後端的 AI 健康建議。請保持規律運動並監測您的心率。"
     }

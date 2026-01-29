@@ -21,7 +21,7 @@ const MAX_ECG_POINTS = 300;
 const ECG_UPDATE_MS = 40;
 
 // --- API Base URL ---
-const API_BASE_URL = "https://fantasy-cooler-leon-insert.trycloudflare.com";
+const API_BASE_URL = "https://desired-sizes-backup-remark.trycloudflare.com";
 
 // --- API Helper ---
 

@@ -21,7 +21,7 @@ const MAX_ECG_POINTS = 300;
 const ECG_UPDATE_MS = 40;
 
 // --- API Base URL ---
-const API_BASE_URL = "https://harvard-cooperative-garlic-carbon.trycloudflare.com";
+const API_BASE_URL = "https://desired-sizes-backup-remark.trycloudflare.com";
 
 // --- API Helper ---
 
@@ -123,18 +123,13 @@ function showRegistrationForm() {
 
 async function handleRegistrationSubmit(event) {
     event.preventDefault();
-    const lvh = document.getElementById('lvh').value;
     const formData = {
         sex: document.getElementById('sex').value,
         age: parseInt(document.getElementById('age').value),
         chest_pain_type: document.getElementById('chest-pain-type').value,
         exercise_angina: document.getElementById('exercise-angina').value === 'Y',
+        resting_ecg: document.getElementById('lvh').value === 'Y'
     };
-    //新增:
-    //如果註冊選有LVH 就是LVH
-    if (lvh === 'Y') {
-        formData.resting_ecg = 'LVH';
-    }
     
     try {
         const response = await fetchWithAuth('/api/v1/user/profile', {
@@ -198,11 +193,11 @@ async function fetchHealthSummary() {
         const data = await fetchWithAuth('/api/v1/health/summary');
         
         document.getElementById('last-update').textContent = `最後更新：${new Date(data.last_update).toLocaleString()}`;
-        document.getElementById('resting-bp').textContent = data.overview.resting_bp;
-        document.getElementById('avg-hr').textContent = data.overview.avg_hr;
-        document.getElementById('max-hr').textContent = data.overview.max_hr;
+        document.getElementById('resting-bp').textContent = data.overview.resting_bp == 0 ? '--' : data.overview.resting_bp;
+        document.getElementById('avg-hr').textContent = data.overview.avg_hr == 0 ? '--' : data.overview.avg_hr;
+        document.getElementById('max-hr').textContent = data.overview.max_hr == 0 ? '--' : data.overview.max_hr;
         document.getElementById('st-slope').textContent = data.overview.st_slope;
-        document.getElementById('resting-ecg').textContent = data.overview.resting_ecg; //新增的resting_ecg
+        document.getElementById('resting-ecg').textContent = data.overview.resting_ecg;
         document.getElementById('health-summary').textContent = data.ai_summary;
         
     } catch (error) {

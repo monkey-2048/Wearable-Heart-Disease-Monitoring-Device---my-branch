@@ -23,7 +23,7 @@ import pseudo_data
 import result_data
 
 app = Flask(__name__)
-CORS(app) 
+CORS(app)
 sock = Sock(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Use data directory for database to work with Docker volume mounts
@@ -48,6 +48,16 @@ def add_security_headers(response):
 # def serve_index():
 #     frontend_dir = os.path.abspath(os.path.join(basedir, '..', 'frontend'))
 #     return send_from_directory(frontend_dir, 'index.html')
+
+# @app.route('/style.css', methods=['GET'])
+# def serve_frontend():
+#     frontend_dir = os.path.abspath(os.path.join(basedir, '..', 'frontend'))
+#     return send_from_directory(frontend_dir, 'style.css')
+
+# @app.route('/script.js', methods=['GET'])
+# def serve_script():
+#     frontend_dir = os.path.abspath(os.path.join(basedir, '..', 'frontend'))
+#     return send_from_directory(frontend_dir, 'script.js')
 
 # --- Authentication Endpoints ---
 @app.route('/api/auth/google', methods=['POST'])
@@ -85,7 +95,7 @@ def create_user_profile():
         abort(status_code, message)
     data = request.json
     
-    required_fields = ['sex', 'age', 'chest_pain_type', 'exercise_angina']
+    required_fields = ['sex', 'age', 'chest_pain_type', 'exercise_angina', 'resting_ecg']
     for field in required_fields:
         if field not in data:
             abort(400, f'Missing required field: {field}')
@@ -95,7 +105,7 @@ def create_user_profile():
         "age": data["age"],
         "chest_pain_type": data["chest_pain_type"],
         "exercise_angina": data["exercise_angina"],
-        "resting_ecg": data.get("resting_ecg")  # add: get resting_ecg is LVH from user
+        "resting_ecg": data["resting_ecg"]
     }
     return jsonify(database.update_userdata(user_data["id"], profile_data))
 
@@ -138,7 +148,7 @@ def get_health_risk():
     if "error" in user_data:
         status_code, message = user_data["error"]
         abort(status_code, message)
-    return jsonify(result_data.get_health_risk())
+    return jsonify(result_data.get_health_risk(database.get_window_features(user_data["id"])))
 
 @app.route('/api/v1/charts/bp', methods=['GET'])
 def get_chart_bp():

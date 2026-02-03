@@ -57,3 +57,18 @@ pip freeze > requirements.txt
 ### Docker Usage
 
 Under construction.
+
+> Portainer (the profiler) dashboard URL: http://localhost:9000
+
+Goto **Containers > heart-monitor-backend > Stats** to get the result.
+
+1. If you are using Windows, download Docker Desktop and open it.
+2. `cd docker`.
+3. Ensure your docker fully stopped.
+```bash
+docker-compose down
+```
+4. Build the docker image and start.
+```bash
+docker-compose up --build
+```

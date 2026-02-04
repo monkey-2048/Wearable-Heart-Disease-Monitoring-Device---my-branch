@@ -55,6 +55,7 @@ def health_summary(
 
     try:
         return generate_text(prompt)
-    except Exception:
+    except Exception as e:
+        print(f"Gemini generation error: {e}")
         # Safety: never break the API response
         return _fallback_health_summary()

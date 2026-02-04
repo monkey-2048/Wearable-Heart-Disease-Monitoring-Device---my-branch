@@ -722,11 +722,30 @@ function mapToEditPanelValues(config) {
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('registration-form').addEventListener('submit', handleRegistrationSubmit);
-
+    const token = sessionStorage.getItem('apiToken');
+    if (token) {
+        apiToken = token;
+        fetchWithAuth('/api/auth/me')
+            .then(data => {
+                if (data.is_new_user) {
+                    showRegistrationForm();
+                } else {
+                    initializeApp(data.user);
+                }
+            })
+            .catch(error => {
+                console.error("Session restore failed", error);
+                sessionStorage.removeItem('apiToken');
+                initializeGSI();
+            });
+    } else {
+        initializeGSI();
+    }
+    
     // --- DEMO: skip Google login ---
-    apiToken = "DEMO_TOKEN";
-    sessionStorage.setItem("apiToken", apiToken);
-    initializeApp({ name: "Demo User" });
+    // apiToken = "DEMO_TOKEN";
+    // sessionStorage.setItem("apiToken", apiToken);
+    // initializeApp({ name: "Demo User" });
 
     if (window.elementSdk) {
         window.elementSdk.init({

@@ -32,22 +32,21 @@ class AFCVDetector:
         voting_min_positive: int | None = None,
         min_new_rr_for_update: int = 10,
     ):
-        # Sampling rate used by the R-peak detector and sample->seconds conversion.
-        # Keep integer because downstream detector uses fs in slice indices.
+
         self.fs_hz = int(round(fs_hz))
-        # Number of RR intervals per evaluation window.
+        
         self.window_beats = int(window_beats)
-        # Reference CV_ARR value during AF (paper-inspired constant).
+       
         self.cv_arr_ref = float(cv_arr_ref)
-        # Allowed relative tolerance around cv_arr_ref, in percent.
+        
         self.rcv_percent = float(rcv_percent)
-        # Used to derive refractory period: min RR = 60 / hr_max (sec).
+        
         self.hr_max = float(hr_max)
-        # Number of recent AF raw decisions used for temporal voting.
+        
         self.voting_windows = int(voting_windows)
-        # Recompute AF only after this many new RR intervals are accumulated.
+       
         self.min_new_rr_for_update = max(1, int(min_new_rr_for_update))
-        # Minimum positives required in voting window (default = strict majority).
+        
         if voting_min_positive is None:
             self.voting_min_positive = self.voting_windows // 2 + 1
         else:

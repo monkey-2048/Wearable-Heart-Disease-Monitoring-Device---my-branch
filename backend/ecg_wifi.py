@@ -1,264 +1,172 @@
-import csv
-import lttbc
-import matplotlib.pyplot as plt
-import numpy as np
-import os
 import socket
-import time
-from concurrent.futures import ThreadPoolExecutor
-from matplotlib.animation import FuncAnimation
+import csv
+import os
+from datetime import datetime
+from collections import deque
 
-import database
+import numpy as np
 import pan_tompkins_plus_plus.address_features as af
 
-# --- Flask App Reference (set by backend_main.py) ---
-flask_app = None
-
-# --- Configuration ---
-ESP32_IP = '192.168.56.1'
+ESP32_IP = '192.168.0.102'
 PORT = 80
-WINDOW_SECONDS = 10  # How many seconds to show on the live graph
-SAVE_DATA = False
-# Reconnection settings
-RECONNECT_DELAY = 2  # seconds to wait before reconnecting
-MAX_RECONNECT_ATTEMPTS = 10  # 0 for infinite attempts
-CONNECTION_TIMEOUT = 5  # socket connection timeout
-# CSV_PATH = "pan_tompkins_plus_plus/results_csv/window_features.csv"
+BASE_DIR = "ecg_records"
 
-# Data storage
-all_times = []
-all_values = []
-temp_times = []
-temp_values = []
-last_ecg_chunk = []
-last_temp_chunk = []
-ecg_data_cache = []
-now_ecg_ts_min = 0
-now_ecg_data = {
-    "file": "rest_ecg_data_",
-    "fs_hz": 0.0,
-    "max_hr": 0.0,
-    "avg_hr": 0.0,
-    "st_label": "Up",
-    "oldpeak": 0.0,
-    "resting_ecg": "ST",
-    "calc_time": 0.0
-}
-mode = "rest_ecg_data_"
-exec = ThreadPoolExecutor()
+WINDOW_SECONDS = 10.0
+MICROS_WRAP = 2**32  # micros() on ESP32 is typically uint32 wrap (~71.6 min)
 
-# Connection state
-client_socket = None
-socket_file = None
-connection_lost = False
-reconnect_attempts = 0
+def mode_from_flag(flag: int) -> str:
+    return "EXERCISE" if flag == 1 else "REST"
 
-def init():
-    ax.set_xlim(0, WINDOW_SECONDS)
-    ax.set_ylim(-2, 5) 
-    return line,
+def start_receiver():
+    os.makedirs(BASE_DIR, exist_ok=True)
 
-def connect_to_esp32():
-    global client_socket, socket_file, connection_lost, reconnect_attempts
-    
-    print(f"Connecting to {ESP32_IP}:{PORT}...")
-    
-    try:
-        if client_socket:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    raw_path = os.path.join(BASE_DIR, f"ecg_data_{timestamp}.csv")
+    feat_path = os.path.join(BASE_DIR, f"ecg_features_{timestamp}.csv")
+
+    print(f"Connecting to {ESP32_IP}:{PORT} ...")
+    print(f"Saving raw data to: {raw_path}")
+    print(f"Saving features  to: {feat_path}")
+
+    # window buffers (ESP32 time base)
+    win_t = deque()  # seconds (relative within window)
+    win_v = deque()
+
+    current_mode = "REST"
+
+    # ESP32 time bookkeeping
+    last_t_us_raw = None
+    wrap_count = 0
+
+    # window start (ESP32 extended time in seconds)
+    window_start_s = None
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ESP32_IP, PORT))
+        print("Connected! Receiving... (Press Ctrl+C to stop)")
+
+        with open(raw_path, mode='w', newline='') as raw_f, \
+             open(feat_path, mode='w', newline='') as feat_f:
+
+            raw_writer = csv.writer(raw_f)
+            raw_writer.writerow(["esp_time_us", "mode", "voltage"])
+
+            feat_writer = csv.writer(feat_f)
+            feat_fields = [
+                "esp_time_s_start", "esp_time_s_end", "mode",
+                "fs_hz", "max_hr", "avg_hr", "st_label", "oldpeak",
+                "resting_ecg", "calc_time"
+            ]
+            feat_writer.writerow(feat_fields)
+
+            buffer = ""
+
             try:
-                client_socket.close()
-            except:
-                pass
-        
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.settimeout(CONNECTION_TIMEOUT)
-        client_socket.connect((ESP32_IP, PORT))
-        socket_file = client_socket.makefile('r')
-        
-        connection_lost = False
-        reconnect_attempts = 0
-        print("Connection successful!")
-        return True
-        
-    except Exception as e:
-        print(f"Connection failed: {e}")
-        return False
+                while True:
+                    chunk = s.recv(1024)
+                    if not chunk:
+                        print("Connection closed by server.")
+                        break
 
-def reconnect():
-    global connection_lost
-    connection_lost = True
-    
-    print(f"Attempting to reconnect...")
-    time.sleep(RECONNECT_DELAY)
-    
-    return connect_to_esp32()
+                    buffer += chunk.decode("utf-8", errors="replace")
 
-def update_now_ecg(data: dict) -> None:
-    global now_ecg_data, now_ecg_ts_min, ecg_data_cache, flask_app
-    now_ecg_data = data.result()
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
 
-    now_ts = time.time() // 60
-    if now_ecg_ts_min != now_ts:
-        if now_ecg_ts_min != 0 and flask_app is not None:
-            with flask_app.app_context():
-                try:
-                    database.add_hr_record(heart_rate = sum(ecg_data_cache) / len(ecg_data_cache))
-                except Exception as e:
-                    print(f"Error saving HR record: {e}")
-        now_ecg_ts_min = now_ts
-        ecg_data_cache.clear()
-    ecg_data_cache.append(now_ecg_data["avg_hr"])
+                        # expected: time_us,isExercise,voltage
+                        parts = [p.strip().strip('"') for p in line.split(",")]
+                        if len(parts) < 3:
+                            continue
 
-    if flask_app is not None:
-        with flask_app.app_context():
-            try:
-                database.add_window_feature(database.now_user_id, now_ecg_data)
-            except Exception as e:
-                print(f"Error saving window feature: {e}")
+                        t_us_str, mode_str, v_str = parts[0], parts[1], parts[2]
 
-def update(frame):
-    global last_ts, last_ecg_chunk, last_temp_chunk, mode, connection_lost
-    
-    if connection_lost:
-        if not reconnect():
-            return line,
-    
-    try:
-        if socket_file is None:
-            return line,
-            
-        line_data = socket_file.readline().strip()
-        
-        if not line_data and not connection_lost:
-            try:
-                client_socket.send(b'\n')
-            except:
-                print("Connection lost detected, preparing to reconnect...")
-                connection_lost = True
-                return line,
-        
-        if line_data:
-            if line_data == "REST":
-                mode = "rest_ecg_data_"
-            elif line_data == "EXERCISE":
-                mode = "exercise_ecg_data_"
-            else:
-                val = float(line_data)
-                now_timestamp = time.time()
-                now = now_timestamp - start_timestamp
+                        # parse time_us
+                        try:
+                            t_us_raw = int(t_us_str)
+                        except ValueError:
+                            continue
 
-                if now_timestamp - last_ts >= WINDOW_SECONDS:
-                    last_ecg_chunk = temp_values.copy()
-                    last_temp_chunk = temp_times.copy()
-                    ts = np.asarray(temp_times, dtype=float)
-                    ecg = np.asarray(temp_values, dtype=float)
-                    exec.submit(af.calc_features, ts, ecg, base=mode).add_done_callback(update_now_ecg)
+                        # handle micros() wrap-around
+                        if last_t_us_raw is not None and t_us_raw < last_t_us_raw:
+                            # treat as wrap
+                            wrap_count += 1
+                        last_t_us_raw = t_us_raw
 
-                    temp_times.clear()
-                    temp_values.clear()
-                    last_ts = now_timestamp
-                
-                temp_times.append(now)
-                temp_values.append(val)
-                
-                if SAVE_DATA:
-                    # Save to permanent lists
-                    all_times.append(now)
-                    all_values.append(val)
+                        t_us_ext = t_us_raw + wrap_count * MICROS_WRAP  # monotone-ish
+                        t_s_ext = t_us_ext * 1e-6
 
-                    # Update plot data (showing only last WINDOW_SECONDS)
-                    # slice the list [-500:] to keep the plot fast/responsive
-                    plot_slice_t = all_times[0:] 
-                    plot_slice_v = all_values[0:]
-                    
-                    line.set_data(plot_slice_t, plot_slice_v)
-                
-                    # Shift X-axis view
-                    if now > WINDOW_SECONDS:
-                        ax.set_xlim(now - WINDOW_SECONDS, now)
-    except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError) as e:
-        print(f"Connection error: {e}")
-        connection_lost = True
-    except Exception as e:
-        print(f"Error updating data: {e}")
-    return line,
+                        # parse mode 0/1 -> REST/EXERCISE
+                        try:
+                            mode_flag = int(mode_str)
+                            current_mode = mode_from_flag(mode_flag)
+                        except ValueError:
+                            pass
 
-def get_points_chunk() -> list:
-    nda_ecg = np.array(last_ecg_chunk, dtype=np.float64)
-    nda_temp = np.array(last_temp_chunk, dtype=np.float64)
-    nx, ny = lttbc.downsample(nda_temp, nda_ecg, int(len(last_ecg_chunk) * 0.7))
-    return (ny - np.mean(ny)).tolist()
-    # return np.clip((nda - np.mean(nda)) / np.std(nda), -2, 2).tolist()
+                        # parse voltage (NaN allowed)
+                        try:
+                            v = float(v_str)
+                        except ValueError:
+                            continue
 
-def get_heart_rate() -> float:
-    return now_ecg_data["avg_hr"]
+                        # raw write (ESP32 time)
+                        raw_writer.writerow([t_us_ext, current_mode, v])
 
-# --- Run ---
-def main() -> None:
-    global fig, ax, line, start_timestamp, last_ts
+                        # init window start at first sample
+                        if window_start_s is None:
+                            window_start_s = t_s_ext
 
-    # --- Setup Plot ---
-    fig, ax = plt.subplots()
-    line, = ax.plot([], [], lw=1.5, color='blue')
-    ax.set_title("ECG Live Feed")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Voltage (V)")
-    ax.grid(True)
+                        # push into window using ESP32-relative seconds
+                        win_t.append(t_s_ext - window_start_s)
+                        win_v.append(v)
 
-    # --- Socket Connection ---
-    while not connect_to_esp32():
-        print(f"Connection refused, retrying...")
-        time.sleep(RECONNECT_DELAY)
+                        # window complete?
+                        if (t_s_ext - window_start_s) >= WINDOW_SECONDS:
+                            ts = np.asarray(win_t, dtype=float)
+                            ecg = np.asarray(win_v, dtype=float)
 
-    start_timestamp = time.time()
-    last_ts = start_timestamp
+                            # compute fs from ESP32 timestamps (more reliable than assuming 160)
+                            if len(ts) >= 2 and (ts[-1] - ts[0]) > 0:
+                                fs_est = (len(ts) - 1) / (ts[-1] - ts[0])
+                            else:
+                                fs_est = np.nan
 
-    # with open(CSV_PATH, "w") as f:
-    #     f.write("file,fs_hz,max_hr,avg_hr,st_label,oldpeak,resting_ecg,calc_time\n")
+                            # reset for next window
+                            window_end_s = t_s_ext
+                            win_t.clear()
+                            win_v.clear()
+                            window_start_s = t_s_ext
 
-    try:
-        if SAVE_DATA:
-            print("Recording... Close plot window or press Ctrl+C to save and exit.")
-            ani = FuncAnimation(fig, update, init_func=init, blit=True, interval=1, cache_frame_data=False)
-            plt.show()
-        else:
-            print("Press Ctrl+C to stop...")
-            while True:
-                update(None)
-                time.sleep(0.01)
-        # print("Recording... Close plot window or press Ctrl+C to save and exit.")
-        # ani = FuncAnimation(fig, update, init_func=init, blit=True, interval=1, cache_frame_data=False)
-        # plt.show()
-    except KeyboardInterrupt:
-        print("\nInterrupt received. Stopping...")
-    finally:
-        # --- Save  ---
-        out_dir = "ECG_DATA/"
-        os.makedirs(out_dir, exist_ok=True)
-        filename = f"full_session_{time.strftime('%Y%m%d_%H%M%S')}.csv"
-        filepath = os.path.join(out_dir, filename)
+                            try:
+                                feat = af.calc_features(ts, ecg, base=current_mode)
+                                if not isinstance(feat, dict):
+                                    raise TypeError(f"calc_features returned {type(feat)}; expected dict")
 
-        if all_times:
-            print(f"Saving {len(all_times)} samples to {filename}...")
-            with open(filepath, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['relative_time_sec', 'ecg_value'])
-                # zip pairs the time and value lists together for saving
-                writer.writerows(zip(all_times, all_values))
-            print("Save complete.")
-        else:
-            print("No data was recorded.")
+                                # 若 calc_features 沒填 fs_hz，你可以用這個覆蓋/補上
+                                if "fs_hz" not in feat or feat.get("fs_hz") in (None, "", 0):
+                                    feat["fs_hz"] = fs_est
 
-        if client_socket:
-            try:
-                client_socket.close()
-            except:
-                pass
-        if socket_file:
-            try:
-                socket_file.close()
-            except:
-                pass
+                                print(f"[FEATURE] mode={current_mode} avg_hr={feat.get('avg_hr')} max_hr={feat.get('max_hr')} fs={feat.get('fs_hz')}")
+
+                                row = []
+                                for k in feat_fields:
+                                    if k == "esp_time_s_start":
+                                        row.append(window_end_s - WINDOW_SECONDS)
+                                    elif k == "esp_time_s_end":
+                                        row.append(window_end_s)
+                                    elif k == "mode":
+                                        row.append(current_mode)
+                                    else:
+                                        row.append(feat.get(k, ""))
+                                feat_writer.writerow(row)
+
+                            except Exception as e:
+                                print(f"[FEATURE] Error: {e}")
+
+            except KeyboardInterrupt:
+                print("\nStopped. Data saved.")
 
 if __name__ == "__main__":
-    main()
+    start_receiver()

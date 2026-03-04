@@ -144,7 +144,7 @@ def start_receiver():
                                 if not isinstance(feat, dict):
                                     raise TypeError(f"calc_features returned {type(feat)}; expected dict")
 
-                                # 若 calc_features 沒填 fs_hz，你可以用這個覆蓋/補上
+                                # estimated fs
                                 if "fs_hz" not in feat or feat.get("fs_hz") in (None, "", 0):
                                     feat["fs_hz"] = fs_est
 

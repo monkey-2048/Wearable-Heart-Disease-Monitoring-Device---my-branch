@@ -230,11 +230,6 @@ function ecgUpdateLoop() {
 function startEcgAnimation() {
     if (ecgAnimationInterval) return;
     ecgAnimationInterval = requestAnimationFrame(ecgUpdateLoop);
-
-    document.getElementById('ecg-play').classList.add('bg-pink-600', 'text-rose-100');
-    document.getElementById('ecg-play').classList.remove('bg-rose-950', 'text-stone-400');
-    document.getElementById('ecg-pause').classList.remove('bg-pink-600', 'text-rose-100');
-    document.getElementById('ecg-pause').classList.add('bg-rose-950', 'text-stone-400');
 }
 
 function stopEcgAnimation() {
@@ -242,16 +237,50 @@ function stopEcgAnimation() {
         cancelAnimationFrame(ecgAnimationInterval);
         ecgAnimationInterval = null;
     }
+}
 
+function updateEcgButtonStyles(playing) {
     const playBtn = document.getElementById('ecg-play');
     const pauseBtn = document.getElementById('ecg-pause');
-
-    if (playBtn && pauseBtn) {
+    if (!playBtn || !pauseBtn) return;
+    if (playing) {
+        playBtn.classList.add('bg-pink-600', 'text-rose-100');
+        playBtn.classList.remove('bg-rose-950', 'text-stone-400');
+        pauseBtn.classList.remove('bg-pink-600', 'text-rose-100');
+        pauseBtn.classList.add('bg-rose-950', 'text-stone-400');
+    } else {
         pauseBtn.classList.add('bg-pink-600', 'text-rose-100');
         pauseBtn.classList.remove('bg-rose-950', 'text-stone-400');
         playBtn.classList.remove('bg-pink-600', 'text-rose-100');
         playBtn.classList.add('bg-rose-950', 'text-stone-400');
     }
+}
+
+function ecgPlay() {
+    // Reset chart data
+    if (charts.ecgChart) {
+        charts.ecgChart.data.datasets[0].data.length = 0;
+        charts.ecgChart.update('none');
+    }
+    // Reset state
+    ecgLastReceivedTime = -Infinity;
+    ecgRenderWallBase = null;
+    ecgRenderDataBase = null;
+    ecgDisplayOffset = null;
+    ecgDataQueue.length = 0;
+    ecgDownloadBuffer.length = 0;
+    // Connect & start
+    connectWebSocket();
+    startEcgAnimation();
+    updateEcgButtonStyles(true);
+}
+
+function ecgPause() {
+    // Disconnect WebSocket (onclose will call stopEcgAnimation)
+    if (ecgSocket) {
+        ecgSocket.close();
+    }
+    updateEcgButtonStyles(false);
 }
 
 function downloadEcgImage() {
@@ -361,7 +390,7 @@ function downloadEcgImage() {
 }
 
 function setupEcgControls() {
-    document.getElementById('ecg-play').addEventListener('click', startEcgAnimation);
-    document.getElementById('ecg-pause').addEventListener('click', stopEcgAnimation);
+    document.getElementById('ecg-play').addEventListener('click', ecgPlay);
+    document.getElementById('ecg-pause').addEventListener('click', ecgPause);
     document.getElementById('ecg-download').addEventListener('click', downloadEcgImage);
 }

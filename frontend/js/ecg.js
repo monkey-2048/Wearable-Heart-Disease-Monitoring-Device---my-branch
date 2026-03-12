@@ -16,6 +16,12 @@ let ecgRenderWallBase = null;         // performance.now() when rendering starte
 let ecgRenderDataBase = null;         // data-time corresponding to wallBase
 let ecgDisplayOffset = null;          // first data-time of this display session (for 0-based X)
 
+function updateAFStatus(afData) {
+    const detectedEl = document.getElementById('af-detected');
+    if (!detectedEl || !afData) return;
+    detectedEl.textContent = afData.af_detected ? '有風險' : '無風險';
+}
+
 // --- WebSocket ---
 
 function connectWebSocket() {
@@ -68,6 +74,7 @@ function connectWebSocket() {
                         : 'text-sm font-semibold px-3 py-1 shadow-lg bg-rose-900 text-rose-200';
                 }
             }
+            updateAFStatus(data.af);
         } catch (e) {
             console.error('Error parsing ECG data:', e);
         }

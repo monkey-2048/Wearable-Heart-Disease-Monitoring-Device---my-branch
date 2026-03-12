@@ -12,6 +12,7 @@ from matplotlib.animation import FuncAnimation
 
 import database
 import pan_tompkins_plus_plus.address_features as af
+from AF_detection import AFCVDetector
 
 # --- Flask App Reference (set by backend_main.py) ---
 flask_app = None
@@ -48,6 +49,15 @@ now_ecg_data = {
 }
 mode = "rest_ecg_data_"
 exec = ThreadPoolExecutor()
+af_detector = AFCVDetector(fs_hz=160, window_beats=100, min_new_rr_for_update=10)
+last_af_result = {
+    "af_detected": False,
+    "af_raw": False,
+    "cv_rr": None,
+    "beats_used": 0,
+    "vote_positive": 0,
+    "vote_total": 0,
+}
 
 # Connection state
 client_socket = None
@@ -137,7 +147,7 @@ def update_now_ecg(data: dict) -> None:
                 print(f"Error saving window feature: {e}")
 
 def update(frame):
-    global last_ts, last_ecg_chunk, last_temp_chunk, mode, connection_lost
+    global last_ts, last_ecg_chunk, last_temp_chunk, mode, connection_lost, last_af_result
     
     if connection_lost:
         if not reconnect():
@@ -184,6 +194,7 @@ def update(frame):
                     ts = np.asarray(temp_times, dtype=float)
                     ecg = np.asarray(temp_values, dtype=float)
                     exec.submit(af.calc_features, ts, ecg, base=mode).add_done_callback(update_now_ecg)
+                    last_af_result = af_detector.update(ecg)
                 else:
                     print(f"Mode switched: {mode} -> {new_mode}, discarding {len(temp_values)} samples (too few)")
                 temp_times.clear()
@@ -207,6 +218,7 @@ def update(frame):
                 ts = np.asarray(temp_times, dtype=float)
                 ecg = np.asarray(temp_values, dtype=float)
                 exec.submit(af.calc_features, ts, ecg, base=mode).add_done_callback(update_now_ecg)
+                last_af_result = af_detector.update(ecg)
 
                 temp_times.clear()
                 temp_values.clear()
@@ -267,6 +279,10 @@ def get_heart_rate() -> float:
 def get_mode() -> str:
     global mode
     return "exercise" if "exercise" in mode else "rest"
+
+
+def get_af_result() -> dict:
+    return last_af_result
 
 # --- Run ---
 def main() -> None:

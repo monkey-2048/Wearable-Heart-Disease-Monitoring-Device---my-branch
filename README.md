@@ -1,3 +1,33 @@
+## Project Overview
+
+Home Wearable Heart Disease Monitoring Device is an end-to-end ECG analytics system for continuous heart monitoring on an edge-device workflow. The system connects ECG acquisition hardware to a backend service, extracts structured physiological features in real time, performs ML-based heart disease risk assessment, and streams live results to a web dashboard. The current version also includes AF screening based on RR-interval coefficient-of-variation logic for longer-duration rhythm monitoring.
+
+### What This Project Does
+
+- Collects ECG data from an ESP32 device or simulator and streams it to the backend
+- Detects R-peaks and extracts physiological features such as heart rate, ST slope, Oldpeak, and RestingECG status
+- Screens AF from streaming ECG chunks using RR-interval CV with temporal persistence logic
+- Trains and evaluates multiple ML models, then uses an ensemble for heart disease risk prediction
+- Serves a web dashboard with authentication, live ECG, AF status, and health summary
+
+### Technical Highlights
+
+- **Signal Processing:** Pan-Tompkins++ based ECG processing with a fixed 160 Hz pipeline
+- **Feature Pipeline:** Structured feature extraction for MaxHR, Oldpeak, ST slope, RestingECG, and related risk inputs
+- **AF Detection:** Streaming RR-based AF screening with refractory filtering, rolling windows, and persistence-based decision logic
+- **Modeling:** CatBoost / Logistic Regression / Gradient Boosting ensemble for heart disease risk prediction
+- **Backend:** Flask APIs + WebSocket streaming for live ECG, mode status, and AF payloads
+- **Frontend:** Modular web dashboard with Google OAuth, charts, risk view, and real-time ECG display
+
+### Key Components
+
+- `backend/pan_tompkins_plus_plus`: ECG feature extraction, model training, and risk prediction
+- `backend/AF_detection.py`: streaming AF screening logic based on RR interval variation
+- `backend/ecg_wifi.py`: real-time ECG ingestion, feature updates, AF updates, and WebSocket data source
+- `backend/backend_main.py`: API server and WebSocket endpoint
+- `frontend/`: modular dashboard UI, authentication flow, charts, ECG, and risk views
+- `ESP32/`: device-side data acquisition and ECG simulation utilities
+
 ## Environment Settings
 
 > Please at least use a virtual environment to keep your Python environment clean!
@@ -29,6 +59,8 @@ pip freeze > requirements.txt
 ```
 
 ### Docker Usage
+
+Under construction.
 
 > Portainer (the profiler) dashboard URL: http://localhost:9000
 

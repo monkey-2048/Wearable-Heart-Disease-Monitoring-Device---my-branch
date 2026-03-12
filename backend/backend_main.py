@@ -192,11 +192,13 @@ def send_ecg_data(ws: Server):
             chunk = ecg_wifi.get_points_chunk()
             heart_rate = ecg_wifi.get_heart_rate()
             current_mode = ecg_wifi.get_mode()
+            af_result = ecg_wifi.get_af_result()
             ws.send(json.dumps({
                 "times": chunk["times"],
                 "points": chunk["values"],
                 "heart_rate": heart_rate,
-                "mode": current_mode
+                "mode": current_mode,
+                "af": af_result,
             }))
             time.sleep(0.16)
     except Exception as e:
@@ -270,4 +272,3 @@ if __name__ == '__main__':
         eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 39244)), app)
     except KeyboardInterrupt:
         signal_handler(signal.SIGINT, None)
-

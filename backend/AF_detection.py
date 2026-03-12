@@ -75,7 +75,7 @@ class AFRdRDetector:
 
         if peaks.size >= 2:
             rr = np.diff(peaks) / float(self.fs_hz)
-            rr = rr[(rr > 0.0) & (rr < 3.0)]
+            rr = rr[(rr >= 0.3) & (rr < 3.0)]
             if rr.size:
                 self._rr_intervals.extend(rr.tolist())
                 self._new_rr_since_eval += int(rr.size)
